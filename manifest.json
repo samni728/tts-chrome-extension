@@ -8,6 +8,9 @@
   },
   "permissions": ["storage", "activeTab", "scripting", "contextMenus"],
   "host_permissions": ["http://*/v1/audio/*", "https://*/v1/audio/*"],
+  "content_security_policy": {
+    "extension_pages": "default-src 'self'; connect-src http://* https://*; media-src blob:;"
+  },
   "background": {
     "service_worker": "background.js"
   },
