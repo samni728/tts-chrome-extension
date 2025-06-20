@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "LocalTTS Extension",
   "description": "Read text aloud using LocalTTS service.",
-  "version": "0.1",
+  "version": "0.2",
   "icons": {
     "128": "icon128.png"
   },

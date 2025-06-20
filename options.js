@@ -1,12 +1,12 @@
 async function fetchVoices(url, token) {
   try {
-    const res = await fetch(`${url}/v1/audio/all_voices`, {
-      headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+    const res = await chrome.runtime.sendMessage({
+      type: 'fetchVoices',
+      url,
+      token
     });
-    if (res.headers.get('content-type')?.includes('application/json')) {
-      return await res.json();
-    }
-    throw new Error('Voice API returned non-JSON');
+    if (res.error) throw new Error(res.error);
+    return res.voices;
   } catch (e) {
     console.error('Failed to fetch voices', e);
     return [];
