@@ -158,6 +158,7 @@
           port.disconnect();
         } else if (msg.error) {
           console.error('TTS stream error', msg.error);
+          alert('TTS error: ' + msg.error);
           port.disconnect();
         }
       });
