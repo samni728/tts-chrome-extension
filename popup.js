@@ -39,7 +39,9 @@ async function fetchVoices() {
             url,
             token: apiKeyInput.value
         });
-        if (res.error) throw new Error(res.error);
+        if (res.error || !Array.isArray(res.voices)) {
+            throw new Error(res.error || 'invalid');
+        }
         allVoices = res.voices;
         const locales = [...new Set(allVoices.map(v => v.locale))];
         langSelect.innerHTML = locales.map(l => `<option value="${l}">${l}</option>`).join('');
@@ -47,6 +49,7 @@ async function fetchVoices() {
         console.error('Failed to fetch voices', e);
         langSelect.innerHTML = '';
         voiceSelect.innerHTML = '';
+        alert(currentUILang === 'zh' ? '语音服务配置错误或无法连接' : 'Voice service misconfigured or unreachable');
     }
 }
 
