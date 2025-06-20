@@ -102,20 +102,43 @@
 
     mediaSource.addEventListener('sourceopen', async () => {
       const sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg');
+      const queue = [];
+      let streamEnded = false;
+
+      function appendFromQueue() {
+        if (queue.length && !sourceBuffer.updating) {
+          try {
+            sourceBuffer.appendBuffer(queue.shift());
+          } catch (err) {
+            console.error('appendBuffer failed', err);
+          }
+        }
+        if (streamEnded && queue.length === 0 && !sourceBuffer.updating) {
+          try { mediaSource.endOfStream(); } catch (e) {}
+        }
+      }
+
+      sourceBuffer.addEventListener('updateend', () => {
+        // free old buffered data to prevent quota errors
+        try {
+          const current = audio.currentTime;
+          if (sourceBuffer.buffered.length && current > 30) {
+            sourceBuffer.remove(0, current - 30);
+          }
+        } catch (e) {}
+        appendFromQueue();
+      });
+
       const reader = response.body.getReader();
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        await new Promise((resolve) => {
-          sourceBuffer.addEventListener('updateend', resolve, { once: true });
-          sourceBuffer.appendBuffer(value);
-        });
+        queue.push(value);
+        appendFromQueue();
       }
-      if (sourceBuffer.updating) {
-        sourceBuffer.addEventListener('updateend', () => mediaSource.endOfStream(), { once: true });
-      } else {
-        mediaSource.endOfStream();
-      }
+
+      streamEnded = true;
+      appendFromQueue();
     });
   };
 })();

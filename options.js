@@ -3,7 +3,10 @@ async function fetchVoices(url, token) {
     const res = await fetch(`${url}/v1/audio/all_voices`, {
       headers: token ? { 'Authorization': 'Bearer ' + token } : {}
     });
-    return await res.json();
+    if (res.headers.get('content-type')?.includes('application/json')) {
+      return await res.json();
+    }
+    throw new Error('Voice API returned non-JSON');
   } catch (e) {
     console.error('Failed to fetch voices', e);
     return [];
