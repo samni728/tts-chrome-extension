@@ -28,24 +28,28 @@
     wrapper.id = 'tts-floating-player';
     wrapper.style.cssText =
       'position:fixed;bottom:20px;right:20px;z-index:9999999;background:#fff;' +
-      'padding:8px;width:320px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.15);font-family:sans-serif;';
+      'padding:8px;width:320px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.15);font-family:sans-serif;';
     wrapper.innerHTML = `
       <div id="tts-header" style="cursor:move;display:flex;justify-content:space-between;align-items:center;">
         <button id="lang-switch" style="background:none;border:none;cursor:pointer;font-size:12px;">${langUI[currentLang].langSwitch}</button>
         <button id="tts-close" style="background:none;border:none;font-size:18px;cursor:pointer;">\u00d7</button>
       </div>
-      <audio id="tts-audio" controls style="width:100%;margin-top:4px;"></audio>
       <div style="display:flex;align-items:center;margin-top:4px;font-size:12px;">
         <span id="speed-label" style="margin-right:4px;">${langUI[currentLang].speed}</span>
-        <input id="tts-speed" type="range" min="0.5" max="2" step="0.1" value="1" style="flex:1;">
-      </div>`;
+        <input id="tts-speed" type="range" min="0.5" max="2" step="0.1" value="1" style="flex:1;margin-right:4px;">
+        <span id="speed-val">1x</span>
+      </div>
+      <audio id="tts-audio" controls style="width:100%;margin-top:4px;border-radius:6px;"></audio>
+      <div id="tts-duration" style="font-size:12px;text-align:right;margin-top:2px;"></div>`;
     document.body.appendChild(wrapper);
 
     const header = wrapper.querySelector('#tts-header');
     header.addEventListener('mousedown', startDrag);
     wrapper.querySelector('#tts-close').addEventListener('click', () => {
+      const url = audio.src;
       wrapper.remove();
       window.TTSPlayerInitialized = false;
+      try { URL.revokeObjectURL(url); } catch (e) {}
     });
 
     wrapper.querySelector('#lang-switch').addEventListener('click', () => {
@@ -55,9 +59,19 @@
     });
 
     const speedInput = wrapper.querySelector('#tts-speed');
+    const speedVal = wrapper.querySelector('#speed-val');
     const audio = wrapper.querySelector('#tts-audio');
+    const durationEl = wrapper.querySelector('#tts-duration');
     speedInput.addEventListener('input', () => {
       audio.playbackRate = speedInput.value;
+      speedVal.textContent = speedInput.value + 'x';
+    });
+    audio.addEventListener('durationchange', () => {
+      if (isFinite(audio.duration)) {
+        const m = Math.floor(audio.duration / 60);
+        const s = Math.floor(audio.duration % 60).toString().padStart(2, '0');
+        durationEl.textContent = m + ':' + s;
+      }
     });
   }
 
@@ -104,7 +118,17 @@
           try {
             sourceBuffer.appendBuffer(queue.shift());
           } catch (err) {
-            console.error('appendBuffer failed', err);
+            if (err.name === 'QuotaExceededError') {
+              try {
+                const current = audio.currentTime;
+                if (sourceBuffer.buffered.length && current > 30) {
+                  sourceBuffer.remove(0, current - 30);
+                }
+              } catch (e) {}
+              queue.unshift(queue.shift());
+            } else {
+              console.error('appendBuffer failed', err);
+            }
           }
         }
         if (streamEnded && queue.length === 0 && !sourceBuffer.updating) {
@@ -131,6 +155,7 @@
         } else if (msg.done) {
           streamEnded = true;
           appendFromQueue();
+          port.disconnect();
         } else if (msg.error) {
           console.error('TTS stream error', msg.error);
           port.disconnect();

@@ -5,10 +5,13 @@ async function fetchVoices(url, token) {
       url,
       token
     });
-    if (res.error) throw new Error(res.error);
+    if (res.error || !Array.isArray(res.voices)) {
+      throw new Error(res.error || 'invalid');
+    }
     return res.voices;
   } catch (e) {
     console.error('Failed to fetch voices', e);
+    alert(getCurrentUILang() === 'zh' ? '语音服务配置错误或无法连接' : 'Voice service misconfigured or unreachable');
     return [];
   }
 }
