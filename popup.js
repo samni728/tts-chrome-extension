@@ -5,9 +5,16 @@ const serverInput = document.getElementById('server-url');
 const apiKeyInput = document.getElementById('api-key');
 const langSelect = document.getElementById('language-select');
 const voiceSelect = document.getElementById('voice-select');
+const uiSwitch = document.getElementById('ui-lang-switch');
+let currentUILang = getCurrentUILang();
+
+uiSwitch.addEventListener('click', () => {
+    currentUILang = currentUILang === 'en' ? 'zh' : 'en';
+    applyPopupI18n(currentUILang);
+});
 
 async function init() {
-    applyPopupI18n();
+    applyPopupI18n(currentUILang);
     config = await chrome.storage.local.get({
         apiUrl: 'http://127.0.0.1:5050',
         apiToken: '',
@@ -27,14 +34,13 @@ async function init() {
 async function fetchVoices() {
     const url = serverInput.value.replace(/\/$/, '');
     try {
-        const res = await fetch(`${url}/v1/audio/all_voices`, {
-            headers: apiKeyInput.value ? { 'Authorization': 'Bearer ' + apiKeyInput.value } : {}
+        const res = await chrome.runtime.sendMessage({
+            type: 'fetchVoices',
+            url,
+            token: apiKeyInput.value
         });
-        if (res.headers.get('content-type')?.includes('application/json')) {
-            allVoices = await res.json();
-        } else {
-            throw new Error('Voice API returned non-JSON');
-        }
+        if (res.error) throw new Error(res.error);
+        allVoices = res.voices;
         const locales = [...new Set(allVoices.map(v => v.locale))];
         langSelect.innerHTML = locales.map(l => `<option value="${l}">${l}</option>`).join('');
     } catch (e) {
@@ -79,6 +85,11 @@ async function capture(tabId, func) {
 
 async function speakText(text) {
     if (!text) return;
+    if (!config.apiUrl || !config.voice) {
+        chrome.action.openPopup();
+        await chrome.storage.local.set({ pendingText: text });
+        return;
+    }
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['player.js'] });
     await chrome.scripting.executeScript({

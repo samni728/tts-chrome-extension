@@ -89,12 +89,6 @@
     createFloatingPlayer();
     const audio = document.getElementById('tts-audio');
     if (!text) return;
-    const url = cfg.apiUrl.replace(/\/$/, '');
-    const headers = { 'Content-Type': 'application/json' };
-    if (cfg.apiToken) headers['Authorization'] = 'Bearer ' + cfg.apiToken;
-    const body = JSON.stringify({ model: 'tts-1', input: text, voice: cfg.voice, stream: true });
-    const response = await fetch(`${url}/v1/audio/speech`, { method: 'POST', headers, body });
-
     const mediaSource = new MediaSource();
     audio.src = URL.createObjectURL(mediaSource);
     audio.playbackRate = document.getElementById('tts-speed').value;
@@ -129,16 +123,20 @@
         appendFromQueue();
       });
 
-      const reader = response.body.getReader();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        queue.push(value);
-        appendFromQueue();
-      }
-
-      streamEnded = true;
-      appendFromQueue();
+      const port = chrome.runtime.connect({ name: 'tts-stream' });
+      port.onMessage.addListener(msg => {
+        if (msg.chunk) {
+          queue.push(new Uint8Array(msg.chunk));
+          appendFromQueue();
+        } else if (msg.done) {
+          streamEnded = true;
+          appendFromQueue();
+        } else if (msg.error) {
+          console.error('TTS stream error', msg.error);
+          port.disconnect();
+        }
+      });
+      port.postMessage({ cfg, text });
     });
   };
 })();
