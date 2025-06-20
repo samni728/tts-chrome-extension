@@ -30,7 +30,11 @@ async function fetchVoices() {
         const res = await fetch(`${url}/v1/audio/all_voices`, {
             headers: apiKeyInput.value ? { 'Authorization': 'Bearer ' + apiKeyInput.value } : {}
         });
-        allVoices = await res.json();
+        if (res.headers.get('content-type')?.includes('application/json')) {
+            allVoices = await res.json();
+        } else {
+            throw new Error('Voice API returned non-JSON');
+        }
         const locales = [...new Set(allVoices.map(v => v.locale))];
         langSelect.innerHTML = locales.map(l => `<option value="${l}">${l}</option>`).join('');
     } catch (e) {
