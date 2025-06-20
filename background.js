@@ -77,6 +77,11 @@ chrome.runtime.onConnect.addListener(port => {
       if (cfg.apiToken) headers['Authorization'] = 'Bearer ' + cfg.apiToken;
       const body = JSON.stringify({ model: 'tts-1', input: text, voice: cfg.voice, stream: true });
       const res = await fetch(url, { method: 'POST', headers, body });
+      const ctype = res.headers.get('content-type') || '';
+      if (!res.ok || !ctype.includes('audio')) {
+        const errText = await res.text();
+        throw new Error(errText || 'Invalid response');
+      }
       const reader = res.body.getReader();
       while (true) {
         const { done, value } = await reader.read();

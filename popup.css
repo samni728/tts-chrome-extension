@@ -20,7 +20,8 @@ body {
     margin-bottom: 2px;
 }
 .field input,
-.field select {
+.field select,
+.field textarea {
     width: 100%;
     box-sizing: border-box;
 }
