@@ -108,61 +108,72 @@
     audio.playbackRate = document.getElementById('tts-speed').value;
     audio.play();
 
-    mediaSource.addEventListener('sourceopen', async () => {
-      const sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg');
-      const queue = [];
-      let streamEnded = false;
+    const queue = [];
+    let sourceBuffer = null;
+    let mimeType = 'audio/mpeg';
+    let streamEnded = false;
 
-      function appendFromQueue() {
-        if (queue.length && !sourceBuffer.updating) {
-          try {
-            sourceBuffer.appendBuffer(queue.shift());
-          } catch (err) {
-            if (err.name === 'QuotaExceededError') {
-              try {
-                const current = audio.currentTime;
-                if (sourceBuffer.buffered.length && current > 30) {
-                  sourceBuffer.remove(0, current - 30);
-                }
-              } catch (e) {}
-              queue.unshift(queue.shift());
-            } else {
-              console.error('appendBuffer failed', err);
-            }
+    function flushQueue() {
+      if (!sourceBuffer || sourceBuffer.updating) return;
+      if (queue.length) {
+        const chunk = queue.shift();
+        try {
+          sourceBuffer.appendBuffer(chunk);
+        } catch (err) {
+          if (err.name === 'QuotaExceededError') {
+            try {
+              const cur = audio.currentTime;
+              if (sourceBuffer.buffered.length && cur > 30) {
+                sourceBuffer.remove(0, cur - 30);
+              }
+            } catch (_) {}
+            queue.unshift(chunk);
+          } else {
+            console.error('appendBuffer failed', err);
+            queue.unshift(chunk);
+            streamEnded = true;
           }
-        }
-        if (streamEnded && queue.length === 0 && !sourceBuffer.updating) {
-          try { mediaSource.endOfStream(); } catch (e) {}
         }
       }
+      if (streamEnded && queue.length === 0 && !sourceBuffer.updating) {
+        try { mediaSource.endOfStream(); } catch (_) {}
+      }
+    }
 
-      sourceBuffer.addEventListener('updateend', () => {
-        // free old buffered data to prevent quota errors
-        try {
-          const current = audio.currentTime;
-          if (sourceBuffer.buffered.length && current > 30) {
-            sourceBuffer.remove(0, current - 30);
-          }
-        } catch (e) {}
-        appendFromQueue();
-      });
-
-      const port = chrome.runtime.connect({ name: 'tts-stream' });
-      port.onMessage.addListener(msg => {
-        if (msg.chunk) {
-          queue.push(new Uint8Array(msg.chunk));
-          appendFromQueue();
-        } else if (msg.done) {
-          streamEnded = true;
-          appendFromQueue();
-          port.disconnect();
-        } else if (msg.error) {
-          console.error('TTS stream error', msg.error);
-          alert('TTS error: ' + msg.error);
-          port.disconnect();
-        }
-      });
-      port.postMessage({ cfg, text });
+    mediaSource.addEventListener('sourceopen', () => {
+      try {
+        sourceBuffer = mediaSource.addSourceBuffer(mimeType);
+        sourceBuffer.mode = 'sequence';
+        sourceBuffer.addEventListener('updateend', () => {
+          flushQueue();
+        });
+        flushQueue();
+      } catch (e) {
+        console.error('addSourceBuffer failed', e);
+        audio.src = '';
+      }
     });
+
+    const port = chrome.runtime.connect({ name: 'tts-stream' });
+    port.onMessage.addListener(msg => {
+      if (msg.mime) {
+        mimeType = msg.mime;
+      } else if (msg.chunk) {
+        queue.push(new Uint8Array(msg.chunk));
+        flushQueue();
+      } else if (msg.done) {
+        streamEnded = true;
+        flushQueue();
+        port.disconnect();
+      } else if (msg.error) {
+        console.error('TTS stream error', msg.error);
+        alert('TTS error: ' + msg.error);
+        streamEnded = true;
+        flushQueue();
+        port.disconnect();
+      }
+    });
+
+    port.postMessage({ cfg, text });
   };
 })();
