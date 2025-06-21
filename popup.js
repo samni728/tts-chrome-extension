@@ -5,7 +5,8 @@ const serverInput = document.getElementById('server-url');
 const apiKeyInput = document.getElementById('api-key');
 const langSelect = document.getElementById('language-select');
 const voiceSelect = document.getElementById('voice-select');
-
+const textInput = document.getElementById('tts-text');
+const playBtn = document.getElementById('play-text');
 const uiSwitch = document.getElementById('ui-lang-switch');
 let currentUILang = getCurrentUILang();
 
@@ -90,7 +91,7 @@ async function capture(tabId, func) {
 async function speakText(text) {
     if (!text) return;
     if (!config.apiUrl || !config.voice) {
-        chrome.runtime.openOptionsPage();
+        chrome.action.openPopup();
         await chrome.storage.local.set({ pendingText: text });
         return;
     }
@@ -114,6 +115,12 @@ document.getElementById('read-page').addEventListener('click', async () => {
     const text = await capture(tab.id, () => document.body.innerText);
     speakText(text);
 });
+
+if (playBtn) {
+    playBtn.addEventListener('click', () => {
+        speakText(textInput.value);
+    });
+}
 
 chrome.storage.local.get('pendingText').then(data => {
     if (data.pendingText) {
