@@ -27,7 +27,7 @@ async function playOrPrompt(tabId, text) {
     voice: ''
   });
   if (!cfg.apiUrl || !cfg.voice) {
-    chrome.storage.local.set({ pendingText: text || '' }, () => chrome.runtime.openOptionsPage());
+    chrome.storage.local.set({ pendingText: text || '' }, () => chrome.action.openPopup());
     return;
   }
   await chrome.scripting.executeScript({ target: { tabId }, files: ['player.js'] });
@@ -82,7 +82,6 @@ chrome.runtime.onConnect.addListener(port => {
         const errText = await res.text();
         throw new Error(errText || 'Invalid response');
       }
-      port.postMessage({ mime: ctype.split(';')[0] });
       const reader = res.body.getReader();
       while (true) {
         const { done, value } = await reader.read();
