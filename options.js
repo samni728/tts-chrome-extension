@@ -1,3 +1,5 @@
+let cfg = {};
+
 async function fetchVoices(url, token) {
   try {
     const res = await fetch(`${url}/v1/audio/all_voices`, {
@@ -32,7 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let allVoices = [];
 
   async function loadConfig() {
-    const cfg = await chrome.storage.local.get({
+    cfg = await chrome.storage.local.get({
       apiUrl: 'http://127.0.0.1:5050',
       apiToken: '',
       language: '',
@@ -42,21 +44,37 @@ document.addEventListener('DOMContentLoaded', async () => {
     tokenInput.value = cfg.apiToken;
     allVoices = await fetchVoices(cfg.apiUrl, cfg.apiToken);
     populateLocales(allVoices, languageSelect);
-    if (cfg.language) {
-      languageSelect.value = cfg.language;
-      populateVoices(allVoices, cfg.language, voiceSelect);
-      if (cfg.voice) voiceSelect.value = cfg.voice;
+    if (!cfg.language && allVoices.length) {
+      cfg.language = allVoices[0].locale;
     }
+    languageSelect.value = cfg.language;
+    populateVoices(allVoices, cfg.language, voiceSelect);
+    if (!cfg.voice) {
+      const def = allVoices.find(v => v.locale === cfg.language);
+      if (def) cfg.voice = def.name;
+    }
+    voiceSelect.value = cfg.voice;
+    chrome.storage.local.set(cfg);
   }
 
-  languageSelect.addEventListener('change', () => {
+  languageSelect.addEventListener('change', async () => {
     populateVoices(allVoices, languageSelect.value, voiceSelect);
+    const first = allVoices.find(v => v.locale === languageSelect.value);
+    voiceSelect.value = first ? first.name : '';
+    await chrome.storage.local.set({
+      language: languageSelect.value,
+      voice: voiceSelect.value
+    });
+    cfg.language = languageSelect.value;
+    cfg.voice = voiceSelect.value;
   });
 
   refreshBtn.addEventListener('click', async () => {
     allVoices = await fetchVoices(urlInput.value, tokenInput.value);
     populateLocales(allVoices, languageSelect);
     populateVoices(allVoices, languageSelect.value, voiceSelect);
+    const first = allVoices.find(v => v.locale === languageSelect.value);
+    if (first) voiceSelect.value = first.name;
   });
 
   saveBtn.addEventListener('click', async () => {
@@ -66,6 +84,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       language: languageSelect.value,
       voice: voiceSelect.value
     });
+    cfg.apiUrl = urlInput.value;
+    cfg.apiToken = tokenInput.value;
+    cfg.language = languageSelect.value;
+    cfg.voice = voiceSelect.value;
     const lang = getCurrentUILang();
     alert(lang === 'zh' ? '设置已保存' : 'Saved');
   });
