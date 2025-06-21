@@ -1,14 +1,25 @@
 let cfg = {};
+const fallbackVoices = [
+  { name: 'alloy', short_name: 'alloy', locale: 'en-US', gender: 'male' },
+  { name: 'echo', short_name: 'echo', locale: 'en-US', gender: 'male' },
+  { name: 'fable', short_name: 'fable', locale: 'en-US', gender: 'female' },
+  { name: 'onyx', short_name: 'onyx', locale: 'en-US', gender: 'male' },
+  { name: 'nova', short_name: 'nova', locale: 'en-US', gender: 'female' },
+  { name: 'shimmer', short_name: 'shimmer', locale: 'en-US', gender: 'female' }
+];
 
 async function fetchVoices(url, token) {
   try {
     const res = await fetch(`${url}/v1/audio/all_voices`, {
       headers: token ? { 'Authorization': 'Bearer ' + token } : {}
     });
-    return await res.json();
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (!Array.isArray(data)) throw new Error('invalid response');
+    return data;
   } catch (e) {
-    console.error('Failed to fetch voices', e);
-    return [];
+    console.warn('Failed to fetch voices, using defaults:', e);
+    return fallbackVoices;
   }
 }
 
