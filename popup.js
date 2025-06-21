@@ -1,5 +1,13 @@
 let config = {};
 let allVoices = [];
+const fallbackVoices = [
+    { name: 'alloy', short_name: 'alloy', locale: 'en-US', gender: 'male' },
+    { name: 'echo', short_name: 'echo', locale: 'en-US', gender: 'male' },
+    { name: 'fable', short_name: 'fable', locale: 'en-US', gender: 'female' },
+    { name: 'onyx', short_name: 'onyx', locale: 'en-US', gender: 'male' },
+    { name: 'nova', short_name: 'nova', locale: 'en-US', gender: 'female' },
+    { name: 'shimmer', short_name: 'shimmer', locale: 'en-US', gender: 'female' }
+];
 
 const serverInput = document.getElementById('server-url');
 const apiKeyInput = document.getElementById('api-key');
@@ -36,14 +44,16 @@ async function fetchVoices() {
         const res = await fetch(`${url}/v1/audio/all_voices`, {
             headers: apiKeyInput.value ? { 'Authorization': 'Bearer ' + apiKeyInput.value } : {}
         });
-        allVoices = await res.json();
-        const locales = [...new Set(allVoices.map(v => v.locale))];
-        langSelect.innerHTML = locales.map(l => `<option value="${l}">${l}</option>`).join('');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        if (!Array.isArray(data)) throw new Error('invalid response');
+        allVoices = data;
     } catch (e) {
-        console.error('Failed to fetch voices', e);
-        langSelect.innerHTML = '';
-        voiceSelect.innerHTML = '';
+        console.warn('Failed to fetch voices, using defaults:', e);
+        allVoices = fallbackVoices;
     }
+    const locales = [...new Set(allVoices.map(v => v.locale))];
+    langSelect.innerHTML = locales.map(l => `<option value="${l}">${l}</option>`).join('');
 }
 
 function updateVoiceOptions(locale) {
