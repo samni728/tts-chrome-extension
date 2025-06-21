@@ -6,11 +6,8 @@ const langUI = {
     key: 'API Key',
     lang: 'Language',
     voice: 'Voice',
-    text: 'Text',
-    play: 'Play Text',
     refresh: 'Refresh Voices',
-    save: 'Save',
-    switch: '中文'
+    save: 'Save'
   },
   zh: {
     readSelected: '\u6717\u8bfb\u9009\u4e2d\u6587\u672c',
@@ -19,11 +16,8 @@ const langUI = {
     key: 'API \u5bc6\u94a5',
     lang: '\u8bed\u8a00',
     voice: '\u97f3\u8272',
-    text: '\u6587\u672c',
-    play: '\u64ad\u653e',
     refresh: '\u5237\u65b0\u8bed\u97f3\u5217\u8868',
-    save: '\u4fdd\u5b58',
-    switch: 'English'
+    save: '\u4fdd\u5b58'
   }
 };
 
@@ -31,19 +25,14 @@ function getCurrentUILang() {
   return navigator.language.startsWith('zh') ? 'zh' : 'en';
 }
 
-function applyPopupI18n(lang = getCurrentUILang()) {
+function applyPopupI18n() {
+  const lang = getCurrentUILang();
   document.querySelector('label[for="server-url"]').textContent = langUI[lang].server;
   document.querySelector('label[for="api-key"]').textContent = langUI[lang].key;
   document.querySelector('label[for="language-select"]').textContent = langUI[lang].lang;
   document.querySelector('label[for="voice-select"]').textContent = langUI[lang].voice;
-  const textLabel = document.querySelector('label[for="tts-text"]');
-  if (textLabel) textLabel.textContent = langUI[lang].text;
   document.getElementById('read-selection').textContent = langUI[lang].readSelected;
   document.getElementById('read-page').textContent = langUI[lang].readPage;
-  const playBtn = document.getElementById('play-text');
-  if (playBtn) playBtn.textContent = langUI[lang].play;
-  const sw = document.getElementById('ui-lang-switch');
-  if (sw) sw.textContent = langUI[lang].switch;
 }
 
 function applyOptionsI18n() {
