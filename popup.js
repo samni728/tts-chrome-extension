@@ -5,18 +5,9 @@ const serverInput = document.getElementById('server-url');
 const apiKeyInput = document.getElementById('api-key');
 const langSelect = document.getElementById('language-select');
 const voiceSelect = document.getElementById('voice-select');
-const textInput = document.getElementById('tts-text');
-const playBtn = document.getElementById('play-text');
-const uiSwitch = document.getElementById('ui-lang-switch');
-let currentUILang = getCurrentUILang();
-
-uiSwitch.addEventListener('click', () => {
-    currentUILang = currentUILang === 'en' ? 'zh' : 'en';
-    applyPopupI18n(currentUILang);
-});
 
 async function init() {
-    applyPopupI18n(currentUILang);
+    applyPopupI18n();
     config = await chrome.storage.local.get({
         apiUrl: 'http://127.0.0.1:5050',
         apiToken: '',
@@ -26,32 +17,32 @@ async function init() {
     serverInput.value = config.apiUrl;
     apiKeyInput.value = config.apiToken;
     await fetchVoices();
-    if (config.language) {
-        langSelect.value = config.language;
-        updateVoiceOptions(config.language);
-        if (config.voice) voiceSelect.value = config.voice;
+    if (!config.language && allVoices.length) {
+        config.language = allVoices[0].locale;
     }
+    langSelect.value = config.language;
+    updateVoiceOptions(config.language);
+    if (!config.voice) {
+        const def = allVoices.find(v => v.locale === config.language);
+        if (def) config.voice = def.name;
+    }
+    voiceSelect.value = config.voice;
+    chrome.storage.local.set(config);
 }
 
 async function fetchVoices() {
     const url = serverInput.value.replace(/\/$/, '');
     try {
-        const res = await chrome.runtime.sendMessage({
-            type: 'fetchVoices',
-            url,
-            token: apiKeyInput.value
+        const res = await fetch(`${url}/v1/audio/all_voices`, {
+            headers: apiKeyInput.value ? { 'Authorization': 'Bearer ' + apiKeyInput.value } : {}
         });
-        if (res.error || !Array.isArray(res.voices)) {
-            throw new Error(res.error || 'invalid');
-        }
-        allVoices = res.voices;
+        allVoices = await res.json();
         const locales = [...new Set(allVoices.map(v => v.locale))];
         langSelect.innerHTML = locales.map(l => `<option value="${l}">${l}</option>`).join('');
     } catch (e) {
         console.error('Failed to fetch voices', e);
         langSelect.innerHTML = '';
         voiceSelect.innerHTML = '';
-        alert(currentUILang === 'zh' ? '语音服务配置错误或无法连接' : 'Voice service misconfigured or unreachable');
     }
 }
 
@@ -63,19 +54,43 @@ function updateVoiceOptions(locale) {
 serverInput.addEventListener('change', async () => {
     await chrome.storage.local.set({ apiUrl: serverInput.value });
     config.apiUrl = serverInput.value;
-    fetchVoices();
+    await fetchVoices();
+    if (!config.language && allVoices.length) {
+        config.language = allVoices[0].locale;
+    }
+    langSelect.value = config.language;
+    updateVoiceOptions(config.language);
+    const def = allVoices.find(v => v.locale === config.language);
+    if (!config.voice && def) config.voice = def.name;
+    voiceSelect.value = config.voice;
+    chrome.storage.local.set(config);
 });
 
 apiKeyInput.addEventListener('change', async () => {
     await chrome.storage.local.set({ apiToken: apiKeyInput.value });
     config.apiToken = apiKeyInput.value;
-    fetchVoices();
+    await fetchVoices();
+    if (!config.language && allVoices.length) {
+        config.language = allVoices[0].locale;
+    }
+    langSelect.value = config.language;
+    updateVoiceOptions(config.language);
+    const def = allVoices.find(v => v.locale === config.language);
+    if (!config.voice && def) config.voice = def.name;
+    voiceSelect.value = config.voice;
+    chrome.storage.local.set(config);
 });
 
 langSelect.addEventListener('change', async () => {
     updateVoiceOptions(langSelect.value);
-    await chrome.storage.local.set({ language: langSelect.value });
+    const first = allVoices.find(v => v.locale === langSelect.value);
+    voiceSelect.value = first ? first.name : '';
+    await chrome.storage.local.set({
+        language: langSelect.value,
+        voice: voiceSelect.value
+    });
     config.language = langSelect.value;
+    config.voice = voiceSelect.value;
 });
 
 voiceSelect.addEventListener('change', async () => {
@@ -90,10 +105,9 @@ async function capture(tabId, func) {
 
 async function speakText(text) {
     if (!text) return;
-    if (!config.apiUrl || !config.voice) {
-        chrome.action.openPopup();
-        await chrome.storage.local.set({ pendingText: text });
-        return;
+    if (!config.voice && allVoices.length) {
+        config.voice = allVoices.find(v => v.locale === config.language)?.name || allVoices[0].name;
+        chrome.storage.local.set({ voice: config.voice });
     }
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['player.js'] });
@@ -115,12 +129,6 @@ document.getElementById('read-page').addEventListener('click', async () => {
     const text = await capture(tab.id, () => document.body.innerText);
     speakText(text);
 });
-
-if (playBtn) {
-    playBtn.addEventListener('click', () => {
-        speakText(textInput.value);
-    });
-}
 
 chrome.storage.local.get('pendingText').then(data => {
     if (data.pendingText) {

@@ -3,7 +3,6 @@ body {
     width: 320px;
     padding: 10px;
     box-sizing: border-box;
-    position: relative;
 }
 .logo {
     width: 48px;
@@ -20,22 +19,11 @@ body {
     margin-bottom: 2px;
 }
 .field input,
-.field select,
-.field textarea {
+.field select {
     width: 100%;
     box-sizing: border-box;
 }
 .buttons {
     margin-top: 10px;
     text-align: center;
-}
-
-#ui-lang-switch {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 12px;
 }
