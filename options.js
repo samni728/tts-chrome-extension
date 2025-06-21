@@ -1,17 +1,11 @@
 async function fetchVoices(url, token) {
   try {
-    const res = await chrome.runtime.sendMessage({
-      type: 'fetchVoices',
-      url,
-      token
+    const res = await fetch(`${url}/v1/audio/all_voices`, {
+      headers: token ? { 'Authorization': 'Bearer ' + token } : {}
     });
-    if (res.error || !Array.isArray(res.voices)) {
-      throw new Error(res.error || 'invalid');
-    }
-    return res.voices;
+    return await res.json();
   } catch (e) {
     console.error('Failed to fetch voices', e);
-    alert(getCurrentUILang() === 'zh' ? '语音服务配置错误或无法连接' : 'Voice service misconfigured or unreachable');
     return [];
   }
 }
