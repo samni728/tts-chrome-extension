@@ -120,11 +120,16 @@ async function speakText(text) {
         chrome.storage.local.set({ voice: config.voice });
     }
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['player.js'] });
+    await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['player.js'],
+        world: 'ISOLATED'
+    });
     await chrome.scripting.executeScript({
         target: { tabId: tab.id },
         func: (cfg, t) => window.playTTS(cfg, t),
-        args: [config, text]
+        args: [config, text],
+        world: 'ISOLATED'
     });
 }
 
